@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Данные (огромные!)
+data/raw/
+data/processed/
+data/cache/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Эксперименты
+experiments/*/
+!experiments/.gitkeep
+
+# Геофайлы
+*.tif
+*.tfw
+*.prj
+*.shp
+*.shx
+*.dbf
+
+# Модели
+*.pth
+*.ckpt
+*.pt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Логи и временные файлы
+*.log
+.DS_Store
+.env
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
