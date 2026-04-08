@@ -34,12 +34,30 @@ clean:
 	rm -rf .pytest_cache .mypy_cache
 verify:
 	@echo "🔍 Проверка установки..."
-	@pip list --format=freeze > /tmp/installed.txt && \
-	cat requirements-dev.txt | grep -v "^#" | grep -v "^-r" | cut -d'=' -f1 | cut -d'>' -f1 | cut -d'<' -f1 | while read pkg; do \
-		if grep -qi "$$pkg==" /tmp/installed.txt; then \
-			echo "   ✅ $$pkg"; \
+	@missing=0; \
+	pip list --format=freeze > /tmp/installed.txt; \
+	while read pkg; do \
+		[ -z "$$pkg" ] && continue; \
+		echo "$$pkg" | grep -q "^#" && continue; \
+		echo "$$pkg" | grep -q "^-r" && continue; \
+		pkg_name=$$(echo "$$pkg" | sed -E 's/([a-zA-Z0-9_-]+).*/\1/'); \
+		if [ "$$pkg_name" = "pre-commit" ]; then \
+			if grep -qi "pre_commit==" /tmp/installed.txt; then \
+				echo "   ✅ $$pkg_name"; \
+			else \
+				echo "   ❌ $$pkg_name"; \
+				missing=1; \
+			fi; \
+		elif grep -qi "^$$pkg_name==" /tmp/installed.txt 2>/dev/null; then \
+			echo "   ✅ $$pkg_name"; \
 		else \
-			echo "   ❌ $$pkg"; \
-			exit 1; \
+			echo "   ❌ $$pkg_name"; \
+			missing=1; \
 		fi; \
-	done && echo "✨ Все пакеты установлены!" || echo "❌ Некоторые пакеты отсутствуют"
+	done < requirements-dev.txt; \
+	if [ $$missing -eq 0 ]; then \
+		echo "✨ Все пакеты установлены!"; \
+	else \
+		echo "❌ Некоторые пакеты отсутствуют"; \
+		exit 1; \
+	fi
