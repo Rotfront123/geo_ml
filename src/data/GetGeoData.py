@@ -37,8 +37,8 @@ def process_region(region_path):
         target_crs = f"EPSG:{target_crs}"
 
     tif_files = []
-    tif_files.extend(region_path.glob("**/*SpOR*/*.tif"))
-    tif_files.extend(region_path.glob("**/*Or*/*.tif"))
+    tif_files.extend(region_path.glob("*SpOR*/*.tiff"))
+    tif_files.extend(region_path.glob("*Or*/*.tiff"))
     # Ищем все геоджесоны в папке разметки
     geojson_files = list(region_path.glob("*_разметка/*.geojson"))
     if not tif_files:
@@ -58,7 +58,7 @@ def process_region(region_path):
     #СОЗДАНИЕ МНОГОКЛАССОВОЙ МАСКИ
     final_mask = np.zeros((ref_ds.rio.height, ref_ds.rio.width), dtype='uint8')
     for g_file in geojson_files:
-        if ("SpOR" in g_file and "SpOR" in example) or ("Or" in g_file and "Or" in example): #пока работает токо с ортофотками
+        if ("SpOR" in str(g_file) and "SpOR" in str(example)) or ("Or" in str(g_file) and "Or" in str(example)): #пока работает токо с ортофотками
             gdf = gpd.read_file(g_file)
             #переводим вектор в ту же систему координат, что и растр
             gdf = gdf.to_crs(target_crs)
