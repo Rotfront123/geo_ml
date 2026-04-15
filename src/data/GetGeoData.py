@@ -37,8 +37,13 @@ def process_region(region_path):
         target_crs = f"EPSG:{target_crs}"
 
     tif_files = []
+    lidar_files = []
     tif_files.extend(region_path.glob("*SpOR*/*.tiff"))
     tif_files.extend(region_path.glob("*Or*/*.tiff"))
+    lidar_files.extend(region_path.glob("*Li*/*g.tif"))
+    print(tif_files[0])
+    print(lidar_files)
+
     # Ищем все геоджесоны в папке разметки
     geojson_files = list(region_path.glob("*_разметка/*.geojson"))
     if not tif_files:
@@ -51,10 +56,29 @@ def process_region(region_path):
     example = tif_files[0]
     ref_ds = rioxarray.open_rasterio(example)
     ref_ds = ref_ds.rio.reproject(target_crs)
-    rgb_mask = ref_ds.values.transpose(1, 2, 0) # (высота, ширина, (р, г, б))
-    if rgb_mask.shape[2] > 3:
-        rgb_mask = rgb_mask[:, :, :3] #там 4 канал лишний какой-то фулл 255 забит
+    rgb_mask = ref_ds.values[:3,:,:].transpose(1, 2, 0).astype('float32') / 255.0 # (высота, ширина, нормализованный ргб)
+    #там 4 канал лишний какой-то фулл 255 забит
 
+    lidar_ds = rioxarray.open_rasterio(lidar_files[0])
+    #тут какаято магия от нейронки, ибо в лидар файле локальные коорды
+    #и тут за две строчки они привязываются к коордам exampla
+    lidar_ds = lidar_ds.rio.write_crs(target_crs)
+    lidar_ds.rio.write_transform(ref_ds.rio.transform(), inplace=True)
+
+
+    lidar_ds = lidar_ds.rio.reproject_match(ref_ds)
+    lidar_raw = lidar_ds.values[0, :, :]
+
+    valid_mask = (lidar_raw != lidar_ds.rio.nodata)
+    lidar_mask = np.zeros(lidar_raw.shape, dtype='float32')
+    if np.any(valid_mask):
+        real_min = lidar_raw[valid_mask].min()
+        real_max = lidar_raw[valid_mask].max()
+        #нормализация
+        if real_max > real_min:
+            lidar_mask[valid_mask] = (lidar_raw[valid_mask] - real_min) / (real_max - real_min)
+        else:
+            lidar_mask[valid_mask] = 0.0
     #СОЗДАНИЕ МНОГОКЛАССОВОЙ МАСКИ
     final_mask = np.zeros((ref_ds.rio.height, ref_ds.rio.width), dtype='uint8')
     for g_file in geojson_files:
@@ -72,10 +96,4 @@ def process_region(region_path):
                 dtype='uint8'
             )
             final_mask = np.maximum(final_mask, file_mask)
-    unet_dir = region_path / "unet_dataset"
-    unet_dir.mkdir(exist_ok=True)
-
-    np.save(unet_dir / "image.npy", rgb_mask)
-    np.save(unet_dir / "mask.npy", final_mask)
-
-
+    return rgb_mask, lidar_mask, final_mask
